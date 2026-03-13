@@ -68,15 +68,24 @@ func main() {
 	tm.SetInputMode(tm.InputEsc)
 	defer ui.Close()
 
-	redisHost, reapiHost := os.Args[1], os.Args[2]
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: bf-client <reapi-host> [redis-host] [ca-cert-path]\n")
+		os.Exit(1)
+	}
+
+	reapiHost := os.Args[1]
+
+	var redisHost string
+	if len(os.Args) > 2 {
+		redisHost = os.Args[2]
+		if !strings.Contains(redisHost, ":") {
+			redisHost += ":6379"
+		}
+	}
 
 	var ca string
 	if len(os.Args) > 3 {
 		ca = os.Args[3]
-	}
-
-	if !strings.Contains(redisHost, ":") {
-		redisHost += ":6379"
 	}
 
 	a := client.NewApp(redisHost, reapiHost, ca)

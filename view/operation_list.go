@@ -56,7 +56,7 @@ type operationList struct {
 func NewOperationList(a *client.App, mode int, v View) *operationList {
 	opcache, _ := lru.New[string, operation](10000)
 	var queues []*client.Queue
-	if mode != 3 {
+	if mode != 3 && a.Client.Connected() {
 		c := bfpb.NewOperationQueueClient(a.Conn)
 		start := time.Now()
 		a.Fetches++

@@ -11,6 +11,10 @@ type UnifiedRedis struct {
 	cluster *redis.ClusterClient
 }
 
+func (r *UnifiedRedis) Connected() bool {
+	return r.client != nil || r.cluster != nil
+}
+
 func (r *UnifiedRedis) connect(host string) {
 	cluster := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:        []string{host},

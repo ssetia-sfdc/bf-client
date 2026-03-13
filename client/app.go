@@ -62,7 +62,9 @@ func (a *App) GetWorkerConn(worker string, ca string) *grpc.ClientConn {
 }
 
 func (a *App) Connect() {
-	a.Client.connect(a.RedisHost)
+	if a.RedisHost != "" {
+		a.Client.connect(a.RedisHost)
+	}
 	a.Conn = connect(a.ReapiHost, a.CA)
 }
 
