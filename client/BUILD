@@ -32,6 +32,7 @@ go_library(
         "@org_golang_google_genproto//googleapis/longrunning:go_default_library",
         "@org_golang_google_genproto_googleapis_bytestream//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//connectivity:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
         "@org_golang_google_grpc//credentials/insecure:go_default_library",
         "@org_golang_x_net//html:go_default_library",

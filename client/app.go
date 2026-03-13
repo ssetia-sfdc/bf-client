@@ -7,6 +7,7 @@ import (
 	reapi "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"google.golang.org/genproto/googleapis/longrunning"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
@@ -55,9 +56,16 @@ func NewApp(redisHost string, reapiHost string, ca string) *App {
 }
 
 func (a *App) GetWorkerConn(worker string, ca string) *grpc.ClientConn {
-	if a.workerConns[worker] == nil {
-		a.workerConns[worker] = connect(worker, ca)
+	if conn := a.workerConns[worker]; conn != nil {
+		state := conn.GetState()
+		if state == connectivity.TransientFailure || state == connectivity.Shutdown {
+			conn.Close()
+			delete(a.workerConns, worker)
+		} else {
+			return conn
+		}
 	}
+	a.workerConns[worker] = connect(worker, ca)
 	return a.workerConns[worker]
 }
 

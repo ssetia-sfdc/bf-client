@@ -261,12 +261,7 @@ func (v *Queue) Update() {
 	var st *bfpb.BackplaneStatus
 	if v.stats.SelectedRow == 0 {
 		if s.workers != nil {
-			var wg sync.WaitGroup
-			for _, worker := range s.workers {
-				wg.Add(1)
-				go fetchProfile(v, worker, v.a.GetWorkerConn(worker, v.a.CA), &wg)
-			}
-			wg.Wait()
+			v.fetchProfilesBatch(s)
 		}
 	}
 	start := time.Now()
@@ -407,6 +402,49 @@ func (v Queue) Render() []ui.Drawable {
 	}
 
 	return []ui.Drawable{p, v.stats, info}
+}
+
+
+func (v *Queue) fetchProfilesBatch(s *stats) {
+	workerProfileClient := bfpb.NewWorkerProfileClient(v.a.Conn)
+	clientDeadline := time.Now().Add(time.Second * 5)
+	ctx, cancel := context.WithDeadline(context.Background(), clientDeadline)
+	batchResp, batchErr := workerProfileClient.BatchWorkerProfiles(ctx, &bfpb.BatchWorkerProfilesRequest{
+		InstanceName: v.a.Instance,
+		WorkerNames:  s.workers,
+	})
+	cancel()
+	s.mutex.Lock()
+	if batchErr != nil {
+		for _, worker := range s.workers {
+			result := s.profiles[worker]
+			if result == nil {
+				s.profiles[worker] = &profileResult{name: worker, profile: &bfpb.WorkerProfileMessage{}, stale: 1, message: batchErr.Error()}
+			} else {
+				result.stale++
+				result.message = batchErr.Error()
+			}
+		}
+	} else {
+		for _, resp := range batchResp.Responses {
+			if resp.Status == nil || resp.Status.Code == 0 {
+				profile := resp.Profile
+				if profile == nil {
+					profile = &bfpb.WorkerProfileMessage{}
+				}
+				s.profiles[resp.WorkerName] = &profileResult{name: resp.WorkerName, profile: profile, stale: 0, message: ""}
+			} else {
+				result := s.profiles[resp.WorkerName]
+				if result == nil {
+					s.profiles[resp.WorkerName] = &profileResult{name: resp.WorkerName, profile: &bfpb.WorkerProfileMessage{}, stale: 1, message: resp.Status.Message}
+				} else {
+					result.stale++
+					result.message = resp.Status.Message
+				}
+			}
+		}
+	}
+	s.mutex.Unlock()
 }
 
 func fetchProfile(v *Queue, worker string, conn *grpc.ClientConn, wg *sync.WaitGroup) {
